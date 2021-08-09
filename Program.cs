@@ -14,33 +14,42 @@ namespace odsmicroservice
     {
         static void Main(string[] args)
         {
-
-            var factory = new ConnectionFactory() { HostName = "localhost" };
-            using (var connection = factory.CreateConnection())
-            using (var channel = connection.CreateModel())
+            try
             {
-                channel.QueueDeclare("DArchQueue", false, false, false, null);
-                var consumer = new EventingBasicConsumer(channel);
-                consumer.Received += (model, ea) =>
+                var factory = new ConnectionFactory() { HostName = "localhost" };
+                using (var connection = factory.CreateConnection())
+                using (var channel = connection.CreateModel())
                 {
-                    Connect().Wait();
-
-                    var body = ea.Body.ToArray();
-                    var data = Encoding.UTF8.GetString(body);
-                    var sensorValue = JsonConvert.DeserializeObject<List<SensorValue>>(data);
-
-                    hubConnection.InvokeAsync("PushValues", sensorValue);
-                    foreach (var sensor in sensorValue)
+                    channel.QueueDeclare("DArchQueue", false, false, false, null);
+                    var consumer = new EventingBasicConsumer(channel);
+                    consumer.Received += (model, ea) =>
                     {
-                        Console.WriteLine($"Sensor : {sensor.SensorId} - V: {sensor.Value}");
-                    }
-                 
-                };
+                        Connect().Wait();
 
-                channel.BasicConsume("DArchQueue", true, consumer);
-                Console.WriteLine("[X] Press Any Key To Exit");
-                Console.ReadLine();
+                        var body = ea.Body.ToArray();
+                        var data = Encoding.UTF8.GetString(body);
+                        var sensorValue = JsonConvert.DeserializeObject<List<SensorValue>>(data);
+
+                        hubConnection.InvokeAsync("PushValues", sensorValue);
+                        foreach (var sensor in sensorValue)
+                        {
+                            Console.WriteLine($"Sensor : {sensor.SensorId} - V: {sensor.Value} Tarih : {DateTime.Now}");
+                        }
+
+                    };
+
+                    channel.BasicConsume("DArchQueue", true, consumer);
+                    Console.WriteLine("[X] Press Any Key To Exit");
+                    Console.ReadLine();
+                }
             }
+            catch (Exception ex)
+            {
+
+                Console.WriteLine("Hata : "+ ex.ToString());
+            }
+
+           
 
         }
 
@@ -49,7 +58,7 @@ namespace odsmicroservice
         public static async Task Connect()
         {
             hubConnection = new HubConnectionBuilder()
-                .WithUrl("https://localhost:44376/WebAPI/sensorvaluesign")
+                .WithUrl("https://odsservice.hatemhastanesi.com.tr/sensorvaluesign")
                 .Build();
 
             await hubConnection.StartAsync();
